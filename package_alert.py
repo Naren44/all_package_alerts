@@ -5,64 +5,49 @@ SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
 
 def send_to_slack(text):
-    print("➡️ Sending to Slack...")
-
     response = requests.post(
         SLACK_WEBHOOK_URL,
         json={"text": text}
     )
-
     print("Slack status:", response.status_code)
 
 
-def fetch_osv_feed():
-    url = "https://api.osv.dev/v1/vulns"
+def fetch_github_advisories():
+    url = "https://api.github.com/advisories?per_page=10"
 
-    print("📡 Fetching OSV global feed...")
+    print("📡 Fetching GitHub Advisories...")
 
     response = requests.get(url)
 
-    print("OSV status:", response.status_code)
+    print("GitHub status:", response.status_code)
 
-    data = response.json()
+    if response.status_code != 200:
+        return []
 
-    vulns = data.get("vulns", [])
-
-    print(f"📊 Total vulnerabilities fetched: {len(vulns)}")
-
-    return vulns
+    return response.json()
 
 
 def main():
-    print("🚀 Running OSV FEED scan...")
+    print("🚀 Running advisory scan...")
 
-    vulns = fetch_osv_feed()
+    advisories = fetch_github_advisories()
 
-    if not vulns:
-        send_to_slack("⚠️ OSV feed returned no data")
+    if not advisories:
+        send_to_slack("⚠️ No advisories fetched")
         return
 
-    # 🔥 Take first vuln for testing
-    v = vulns[0]
+    # take first advisory
+    adv = advisories[0]
 
-    vuln_id = v.get("id", "N/A")
-    summary = v.get("summary", "No summary")
-
-    affected = v.get("affected", [])
-    name = "unknown"
-    ecosystem = "unknown"
-
-    if affected:
-        pkg = affected[0].get("package", {})
-        name = pkg.get("name", "unknown")
-        ecosystem = pkg.get("ecosystem", "unknown")
+    summary = adv.get("summary", "No summary")
+    severity = adv.get("severity", "unknown")
+    ecosystem = adv.get("ecosystem", "unknown")
 
     message = f"""
-🚨 OSV FEED ALERT
+🚨 NEW SECURITY ADVISORY
 
-📦 Package: {name}
 🧬 Ecosystem: {ecosystem}
-🆔 ID: {vuln_id}
+⚠️ Severity: {severity}
 
 📝 {summary}
 """
