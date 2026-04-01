@@ -56,8 +56,7 @@ def main():
     Ecosystem: {ecosystem}
     Severity: {severity}
 
- {summary}
-"""
+ {summary} """
 
         send_to_slack(message)
         alerts += 1
