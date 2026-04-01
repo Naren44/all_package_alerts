@@ -5,7 +5,7 @@ SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
 
 def send_to_slack(text):
-    print("➡️ Sending to Slack...")
+    print("Sending to Slack...")
     response = requests.post(
         SLACK_WEBHOOK_URL,
         json={"text": text}
@@ -16,7 +16,7 @@ def send_to_slack(text):
 def fetch_advisories():
     url = "https://api.github.com/advisories?per_page=20"
 
-    print("📡 Fetching GitHub Advisories...")
+    print(" Fetching GitHub Advisories...")
 
     response = requests.get(url)
 
@@ -29,12 +29,12 @@ def fetch_advisories():
 
 
 def main():
-    print("🚀 Running FULL advisory scan...")
+    print(" Running FULL advisory scan...")
 
     advisories = fetch_advisories()
 
     if not advisories:
-        send_to_slack("⚠️ No advisories fetched")
+        send_to_slack(" No advisories fetched")
         return
 
     alerts = 0
@@ -50,19 +50,19 @@ def main():
             pkg_name = adv["vulnerabilities"][0].get("package", {}).get("name", "unknown")
 
         message = f"""
-🚨 SECURITY ADVISORY
+ SECURITY ADVISORY
 
-📦 Package: {pkg_name}
-🧬 Ecosystem: {ecosystem}
-⚠️ Severity: {severity}
+    Package: {pkg_name}
+    Ecosystem: {ecosystem}
+    Severity: {severity}
 
-📝 {summary}
+ {summary}
 """
 
         send_to_slack(message)
         alerts += 1
 
-    print(f"✅ Total alerts sent: {alerts}")
+    print(f" Total alerts sent: {alerts}")
 
 
 if __name__ == "__main__":
