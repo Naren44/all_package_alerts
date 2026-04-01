@@ -4,16 +4,6 @@ import os
 
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
-KEYWORDS = [
-    "malicious",
-    "typosquat",
-    "dependency confusion",
-    "backdoor",
-    "credential",
-    "token",
-    "exfiltrate"
-]
-
 
 def send_to_slack(text):
     print("➡️ Sending to Slack...")
@@ -31,8 +21,8 @@ def send_to_slack(text):
 def fetch_osv_vulns():
     url = "https://api.osv.dev/v1/query"
 
-    # 🔥 1 hour window
-    since = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+    # 🔥 7-day window (for testing)
+    since = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
 
     payload = {
         "query": {
@@ -53,67 +43,48 @@ def fetch_osv_vulns():
     return vulns
 
 
-def is_relevant(v):
-    vuln_id = v.get("id", "").lower()
-    summary = v.get("summary", "").lower()
-
-    # detect malicious advisories
-    if vuln_id.startswith("mal"):
-        return True
-
-    # keyword-based detection
-    return any(k in summary for k in KEYWORDS)
-
-
 def main():
-    print("🚀 Running supply chain scan (1-hour window)...")
+    print("🚀 Running OSV test scan...")
 
     vulns = fetch_osv_vulns()
 
-    alerts = 0
+    if not vulns:
+        print("❌ No vulnerabilities returned from OSV")
+        send_to_slack("⚠️ OSV returned no data (unexpected)")
+        return
 
-    for v in vulns:
-        print("----- DEBUG START -----")
+    # 🔥 Take first vulnerability (test)
+    first = vulns[0]
 
-        vuln_id = v.get("id", "N/A")
-        summary = v.get("summary", "No summary")
+    vuln_id = first.get("id", "N/A")
+    summary = first.get("summary", "No summary")
 
-        affected = v.get("affected", [])
-        if not affected:
-            continue
+    affected = first.get("affected", [])
+    pkg_name = "unknown"
+    ecosystem = "unknown"
 
+    if affected:
         pkg = affected[0].get("package", {})
-        name = pkg.get("name", "unknown")
+        pkg_name = pkg.get("name", "unknown")
         ecosystem = pkg.get("ecosystem", "unknown")
 
-        print("🆔 ID:", vuln_id)
-        print("📦 Package:", name)
-        print("🧬 Ecosystem:", ecosystem)
-        print("📝 Summary:", summary)
-        print("----- DEBUG END -----")
+    print("🆔 ID:", vuln_id)
+    print("📦 Package:", pkg_name)
+    print("🧬 Ecosystem:", ecosystem)
+    print("📝 Summary:", summary)
 
-        # 🔥 COMMENTED OUT ecosystem filter for visibility
-        # if ecosystem not in ["npm", "pypi"]:
-        #     continue
+    # 🚨 Force alert from OSV data
+    message = f"""
+🚨 OSV TEST ALERT
 
-        if not is_relevant(v):
-            continue
-
-        message = f"""
-🚨 SUPPLY CHAIN ALERT
-
-📦 Package: {name}
+📦 Package: {pkg_name}
 🧬 Ecosystem: {ecosystem}
 🆔 ID: {vuln_id}
 
 📝 {summary}
 """
 
-        send_to_slack(message)
-        alerts += 1
-
-    if alerts == 0:
-        print("✅ No relevant supply chain threats in last 1 hour")
+    send_to_slack(message)
 
 
 if __name__ == "__main__":
