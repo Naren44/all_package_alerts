@@ -1,5 +1,4 @@
 import requests
-from datetime import datetime, timedelta
 import os
 
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
@@ -8,34 +7,25 @@ SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 def send_to_slack(text):
     print("➡️ Sending to Slack...")
 
-    if not SLACK_WEBHOOK_URL:
-        print("❌ Missing Slack webhook")
-        return
-
-    response = requests.post(SLACK_WEBHOOK_URL, json={"text": text})
+    response = requests.post(
+        SLACK_WEBHOOK_URL,
+        json={"text": text}
+    )
 
     print("Slack status:", response.status_code)
-    print("Slack response:", response.text)
 
 
-def fetch_osv_vulns():
-    url = "https://api.osv.dev/v1/query"
+def fetch_osv_feed():
+    url = "https://api.osv.dev/v1/vulns"
 
-    # 🔥 7-day window (for testing)
-    since = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
+    print("📡 Fetching OSV global feed...")
 
-    payload = {
-        "query": {
-            "modified_since": since
-        }
-    }
-
-    print("📡 Calling OSV API...")
-    response = requests.post(url, json=payload)
+    response = requests.get(url)
 
     print("OSV status:", response.status_code)
 
     data = response.json()
+
     vulns = data.get("vulns", [])
 
     print(f"📊 Total vulnerabilities fetched: {len(vulns)}")
@@ -44,40 +34,33 @@ def fetch_osv_vulns():
 
 
 def main():
-    print("🚀 Running OSV test scan...")
+    print("🚀 Running OSV FEED scan...")
 
-    vulns = fetch_osv_vulns()
+    vulns = fetch_osv_feed()
 
     if not vulns:
-        print("❌ No vulnerabilities returned from OSV")
-        send_to_slack("⚠️ OSV returned no data (unexpected)")
+        send_to_slack("⚠️ OSV feed returned no data")
         return
 
-    # 🔥 Take first vulnerability (test)
-    first = vulns[0]
+    # 🔥 Take first vuln for testing
+    v = vulns[0]
 
-    vuln_id = first.get("id", "N/A")
-    summary = first.get("summary", "No summary")
+    vuln_id = v.get("id", "N/A")
+    summary = v.get("summary", "No summary")
 
-    affected = first.get("affected", [])
-    pkg_name = "unknown"
+    affected = v.get("affected", [])
+    name = "unknown"
     ecosystem = "unknown"
 
     if affected:
         pkg = affected[0].get("package", {})
-        pkg_name = pkg.get("name", "unknown")
+        name = pkg.get("name", "unknown")
         ecosystem = pkg.get("ecosystem", "unknown")
 
-    print("🆔 ID:", vuln_id)
-    print("📦 Package:", pkg_name)
-    print("🧬 Ecosystem:", ecosystem)
-    print("📝 Summary:", summary)
-
-    # 🚨 Force alert from OSV data
     message = f"""
-🚨 OSV TEST ALERT
+🚨 OSV FEED ALERT
 
-📦 Package: {pkg_name}
+📦 Package: {name}
 🧬 Ecosystem: {ecosystem}
 🆔 ID: {vuln_id}
 
